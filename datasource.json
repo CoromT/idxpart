@@ -1,0 +1,16 @@
+{
+  "name": "[DataSourceName]",
+  "description": "[Description]",
+  "type": "cosmosdb",
+  "credentials": {
+    "connectionString": "[CosmosConnectionString]"
+  },
+  "container": {
+    "name": "[CosmosContainerName]",
+    "query": "SELECT * FROM c  WHERE c._ts >= _LiteralAsCInt64(@HighWaterMark) AND c._ts >= _LiteralAsCInt64([ParitionStart]) AND c._ts < _LiteralAsCInt64([ParitionEnd]) ORDER BY c._ts"
+  },
+  "dataChangeDetectionPolicy": {
+    "@odata.type": "#Microsoft.Azure.Search.HighWaterMarkChangeDetectionPolicy",
+    "highWaterMarkColumnName": "_ts"
+  }
+}

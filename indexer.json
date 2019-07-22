@@ -1,0 +1,24 @@
+﻿{
+  "name": "[IndexerName]",
+  "targetIndexName": "[IndexName]",
+  "dataSourceName": "[DataSourceName]",
+  "description": "[Description]",
+  "disabled": "[Disabled]",
+  "schedule": {
+    "interval": "PT5M"
+  },
+  "parameters": {
+    "configuration": {
+      "assumeOrderByHighWaterMarkColumn": true
+    }
+  },
+  "fieldMappings": [
+    {
+      "sourceFieldName": "rid",
+      "targetFieldName": "rid",
+      "mappingFunction": {
+        "name": "base64Encode"
+      }
+    }
+  ]
+}
