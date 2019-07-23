@@ -34,22 +34,40 @@ namespace IdxPart
             }
         }
 
+        private static string GetSanitizedValue(string keyName) => 
+            keyName.Contains("ApiKey") || keyName.Contains("ConnectionString") ? "..." : ConfigurationManager.AppSettings[keyName];
+
         public static void Main1(string[] args)
         {
             if (args.Length == 0)
             {
-                Console.WriteLine(@"
-USAGE:  idxpart
+                var parameters = string.Join("\n              ", ConfigurationManager.AppSettings.AllKeys.Select(k => "/" + k + ":" + GetSanitizedValue(k)));
+                Console.WriteLine(@"Manages partitioned Azure Search indexers for bulk importing large amounts of data
+
+USAGE:  idxpart  [instances] action [action] [/Parameter:Value]
+
+  instances:  indexer instances to apply action to (default all).  May be specified muliple times as a single number or range:  e.g. 1 3-6 12 
+  
+  actions:    create    (in the disabled state)
+              delete
+              enable
+              disable
+              run
+              status
+
+  parameters: Values may be set in config or overwriten via commandline
+              " + parameters + @"
 
 EXAMPLES:
-    idxpart create                          
+    idxpart create
+    idxpart delete
     idxpart create enable
     idxpart status
     idxpart disable 2 5-6
     idxpart enable /SkipValidation:true     
-    idxpart create /DatasourceTemplate:datasource-incremental.json /PartitionCount:1
+    idxpart create enable /DatasourceTemplate:datasource-incremental.json /PartitionCount:1
 
-");
+", parameters);
                 return;
             }
 
