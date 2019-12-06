@@ -3,10 +3,10 @@
   "description": "[Description]",
   "type": "cosmosdb",
   "credentials": {
-    "connectionString": "[CosmosConnectionString]"
+    "connectionString": "[ConnectionString]"
   },
   "container": {
-    "name": "[CosmosContainerName]",
+    "name": "[ContainerName]",
     "query": "SELECT * FROM c  WHERE c._ts >= _LiteralAsCInt64(@HighWaterMark) AND c._ts >= _LiteralAsCInt64([ParitionEnd]) ORDER BY c._ts"
   },
   "dataChangeDetectionPolicy": {

@@ -1,0 +1,16 @@
+﻿{
+  "name": "[IndexerName]",
+  "targetIndexName": "[IndexName]",
+  "dataSourceName": "[DataSourceName]",
+  "description": "[Description]",
+  "disabled": "false",
+  "schedule": null,
+  "parameters": {
+    "batchSize": [BatchSize],
+    "configuration": {
+      "dataToExtract": "contentAndMetadata",
+      "parsingMode": "jsonLines"
+    }
+  },
+  "fieldMappings": []
+}

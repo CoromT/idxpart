@@ -57,13 +57,17 @@
     <None Include="App.config">
       <SubType>Designer</SubType>
     </None>
-    <None Include="datasource-incremental.json">
+    <None Include="datasource-jsonlines.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="datasource.json">
+    <None Include="datasource-incremental-cosmosdb.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="indexer.json">
+    <None Include="datasource-cosmosdb.json" />
+    <None Include="indexer-jsonlines.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="indexer-cosmosdb.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
@@ -82,6 +86,9 @@
     </PackageReference>
     <PackageReference Include="System.Net.Http">
       <Version>4.3.4</Version>
+    </PackageReference>
+    <PackageReference Include="System.ValueTuple">
+      <Version>4.5.0</Version>
     </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

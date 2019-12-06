@@ -1,0 +1,12 @@
+{
+  "name": "[DataSourceName]",
+  "description": "[Description]",
+  "type": "azureblob",
+  "credentials": {
+    "connectionString": "[ConnectionString]"
+  },
+  "container": {
+    "name": "[ContainerName]",
+    "query": "[ParitionStart]"
+  }
+}
