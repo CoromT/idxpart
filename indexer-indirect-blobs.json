@@ -1,0 +1,34 @@
+﻿{
+  "name": "[IndexerName]",
+  "targetIndexName": "[IndexName]",
+  "dataSourceName": "[DataSourceName]",
+  "description": "[Description]",
+  "disabled": "[Disabled]",
+  "schedule": null,
+  "skillsetName": "indirect-skillset",
+  "parameters": {
+    "batchSize": [BatchSize],
+    "configuration": {
+    }
+  },
+  "fieldMappings": [
+    {
+      "sourceFieldName": "rowkey",
+      "targetFieldName": "id"
+    },
+    {
+      "sourceFieldName": "rowkey",
+      "targetFieldName": "source",
+      "mappingFunction": {
+        "name": "base64Decode",
+        "parameters": { "useHttpServerUtilityUrlTokenDecode": false }
+      }
+    }
+  ],
+  "outputFieldMappings": [
+    {
+      "sourceFieldName": "/document/content",
+      "targetFieldName": "content"
+    }
+  ]
+}

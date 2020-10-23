@@ -1,0 +1,12 @@
+{
+  "name": "[DataSourceName]",
+  "description": "[Description]",
+  "type": "azuretable",
+  "credentials": {
+    "connectionString": "[ConnectionString]"
+  },
+  "container": {
+    "name": "[IndirectTableName]",
+    "query": "PartitionKey eq '[ParitionStart]'"
+  }
+}

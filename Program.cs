@@ -1,5 +1,12 @@
-﻿using Microsoft.Azure.Search;
+﻿using Azure;
+using Azure.Storage;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using Azure.Storage.Sas;
+using Microsoft.Azure.Cosmos.Table;
+using Microsoft.Azure.Search;
 using Microsoft.Azure.Search.Models;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -10,6 +17,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -63,6 +71,7 @@ USAGE:  idxpart  [instances] action [action] [/Parameter:Value]
               run
               status
               import
+              create-indirect-table
 
   parameters: Values may be set in config or overwriten via commandline
               " + parameters + @"
@@ -322,7 +331,12 @@ EXAMPLES:
             {
                 await ImportData(instances);
             }
-            
+
+            if (args.Contains("create-indirect-table", StringComparer.InvariantCultureIgnoreCase))
+            {
+                await CreateIndirectTable(instances);
+            }
+
             return result;
         }
 
@@ -353,7 +367,7 @@ EXAMPLES:
                 json = json.Replace("[IndexName]", ConfigurationManager.AppSettings["IndexName"]);
                 json = json.Replace("[Description]", description ?? "");
                 string skipValidation = !disabled && bool.Parse(ConfigurationManager.AppSettings["SkipValidation"]) ? "&skipvalidation" : "";
-                string uri = String.Format("{0}/indexers/{1}?api-version=2019-05-06{2}", _searchServiceEndpoint, name, skipValidation);
+                string uri = String.Format("{0}/indexers/{1}?api-version=2020-06-30-Preview{2}", _searchServiceEndpoint, name, skipValidation);
                 HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
                 HttpResponseMessage response = await _httpClient.PutAsync(uri, content);
                 if (!response.IsSuccessStatusCode)
@@ -381,9 +395,10 @@ EXAMPLES:
                 json = json.Replace("[Description]", description ?? "");
                 json = json.Replace("[ConnectionString]", ConfigurationManager.AppSettings["ConnectionString"]);
                 json = json.Replace("[ContainerName]", ConfigurationManager.AppSettings["ContainerName"]);
+                json = json.Replace("[IndirectTableName]", ConfigurationManager.AppSettings["IndirectTableName"]);
                 json = json.Replace("[ParitionStart]", startValue.ToString());
                 json = json.Replace("[ParitionEnd]", endValue.ToString());
-                string uri = String.Format("{0}/datasources/{1}?api-version=2019-05-06", _searchServiceEndpoint, name);
+                string uri = String.Format("{0}/datasources/{1}?api-version=2020-06-30-Preview", _searchServiceEndpoint, name);
                 HttpContent content = new StringContent(json, Encoding.UTF8, "application/json");
                 HttpResponseMessage response = await _httpClient.PutAsync(uri, content);
                 if (!response.IsSuccessStatusCode)
@@ -406,7 +421,7 @@ EXAMPLES:
             Console.WriteLine("Reseting Indexer...");
             try
             {
-                string uri = String.Format("{0}/indexers/{1}/reset?api-version=2019-05-06-Preview", _searchServiceEndpoint, name);
+                string uri = String.Format("{0}/indexers/{1}/reset?api-version=2020-06-30-Preview", _searchServiceEndpoint, name);
                 HttpResponseMessage response = await _httpClient.PostAsync(uri, new StringContent(string.Empty));
                 if (!response.IsSuccessStatusCode)
                 {
@@ -428,7 +443,7 @@ EXAMPLES:
             Console.WriteLine("Runing Indexer...");
             try
             {
-                string uri = String.Format("{0}/indexers/{1}/run?api-version=2019-05-06-Preview", _searchServiceEndpoint, name);
+                string uri = String.Format("{0}/indexers/{1}/run?api-version=2020-06-30-Preview", _searchServiceEndpoint, name);
                 HttpResponseMessage response = await _httpClient.PostAsync(uri, new StringContent(string.Empty));
                 if (!response.IsSuccessStatusCode)
                 {
@@ -455,7 +470,7 @@ EXAMPLES:
             Console.WriteLine("Deleting {0} {1}", collection, name);
             try
             {
-                string uri = String.Format("{0}/{1}/{2}?api-version=2019-05-06-Preview", _searchServiceEndpoint, collection, name);
+                string uri = String.Format("{0}/{1}/{2}?api-version=2020-06-30-Preview", _searchServiceEndpoint, collection, name);
                 HttpResponseMessage response = await _httpClient.DeleteAsync(uri);
 
                 if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NotFound)
@@ -559,7 +574,7 @@ EXAMPLES:
 
                 try
                 {
-                    string uri = String.Format("{0}/indexes/{1}/docs/index?api-version=2019-05-06-Preview", _searchServiceEndpoint, indexName);
+                    string uri = String.Format("{0}/indexes/{1}/docs/index?api-version=2020-06-30-Preview", _searchServiceEndpoint, indexName);
 
                     jsonPayload.Clear();
                     jsonPayload.Append("{\"value\":[");
@@ -615,5 +630,99 @@ EXAMPLES:
             }
         }
 
+
+        private static async Task<bool> CreateIndirectTable(int paritions)
+        {
+            try
+            {
+                var storageAccount = CloudStorageAccount.Parse(ConfigurationManager.AppSettings["ConnectionString"]);
+                var blobClient = new BlobContainerClient(ConfigurationManager.AppSettings["ConnectionString"], ConfigurationManager.AppSettings["ContainerName"]);
+                var tableClient = storageAccount.CreateCloudTableClient();
+
+                // Create a SAS token to access the blobs
+                int sasTokenDays;
+                if (!int.TryParse(ConfigurationManager.AppSettings["ConnectionString"], out sasTokenDays))
+                    sasTokenDays = 365;
+                BlobSasBuilder sasBuilder = new BlobSasBuilder()
+                {
+                    BlobContainerName = blobClient.Name,
+                    Resource = "c",
+                    StartsOn = DateTimeOffset.UtcNow,
+                    ExpiresOn = DateTimeOffset.UtcNow.AddDays(sasTokenDays), // Note that you may want to limit the sas token to be only long enough for it to be indexed
+                };
+                sasBuilder.SetPermissions(BlobContainerSasPermissions.Read);
+                string sasToken = "?" + sasBuilder.ToSasQueryParameters(new StorageSharedKeyCredential(storageAccount.Credentials.AccountName, storageAccount.Credentials.Key)).ToString();
+
+                CloudTable table = tableClient.GetTableReference(ConfigurationManager.AppSettings["IndirectTableName"]);
+
+                Console.WriteLine("Creating Indirection Table if needed");
+                await table.CreateIfNotExistsAsync();
+
+                Console.WriteLine("Getting blobs");
+                var blobs = blobClient.GetBlobsAsync(BlobTraits.None, BlobStates.None, null).GetAsyncEnumerator();
+
+                int pageNum = 0;
+                int blobNum = 0;
+                await foreach (var blobPage in Parition(blobs, 100))
+                {
+                    TableBatchOperation batch = new TableBatchOperation();
+
+                    if (pageNum % 5 == 0)
+                    {
+                        Console.WriteLine("Blobs inserted: " + blobNum);
+                    }
+
+                    int parition = pageNum++ % paritions; // this could also be hash based parition for repeatability
+                    foreach (var blob in blobPage)
+                    {
+                        TableEntity entity = new IndirectEntity(parition, new Uri(blobClient.Uri.ToString() + "/" + blob.Name).ToString(), sasToken);
+                        batch.Add(TableOperation.InsertOrReplace(entity));
+                        blobNum++;
+                    }
+                    var result = await table.ExecuteBatchAsync(batch);
+                    if (result.Any(r => r.HttpStatusCode > 300))
+                    {
+                        throw new Exception("inserting data into the table failed.");
+                    }
+
+                }
+                Console.WriteLine("Blobs table entries complete: " + blobNum);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error creating Indirect table: {0}", ex.Message);
+                return false;
+            }
+            return true;
+        }
+
+        private static async IAsyncEnumerable<T[]> Parition<T>(IAsyncEnumerator<T> enumerator, int count)
+        {
+            while (true)
+            {
+                List<T> data = new List<T>(count);
+                while (data.Count < count && await enumerator.MoveNextAsync())
+                {
+                    data.Add(enumerator.Current);
+                }
+
+                if (data.Any())
+                    yield return data.ToArray();
+                else
+                    yield break;
+            }
+        }
+
+        public class IndirectEntity : TableEntity
+        {
+            public IndirectEntity(int partition, string url, string sasToken = null)
+            {
+                PartitionKey = partition.ToString(ConfigurationManager.AppSettings["PartitionFormatString"]);
+                RowKey = Convert.ToBase64String(Encoding.UTF8.GetBytes(url));
+                blob = url + sasToken;
+            }
+
+            public string blob { get; set; }
+        }
     }
 }

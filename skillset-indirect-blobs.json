@@ -1,0 +1,30 @@
+{
+    "name": "indirect-skillset",
+    "description": "extracts document text using a skillset",
+    "skills": [
+        {
+            "@odata.type": "#Microsoft.Skills.Util.DocumentExtractionSkill",
+            "parsingMode": "default",
+            "dataToExtract": "contentAndMetadata",
+            "configuration": {
+                "imageAction": "none"
+            },
+            "context": "/document",
+             "inputs": [
+                {
+                    "name": "file_data", "sourceContext": "/document/blob", "inputs": [
+                        { "name": "$type", "source": "= 'file'" },
+                        { "name": "url", "source": "= $(/document/blob)" }
+                    ]
+                }
+            ],
+            "outputs": [
+                { "name": "content", "targetName": "content" }
+            ]
+        }
+    ],
+    "cognitiveServices": {
+    	"@odata.type": "#Microsoft.Azure.Search.CognitiveServicesByKey",
+    	"key": "[CognitiveServicesKey]"
+    }
+}
